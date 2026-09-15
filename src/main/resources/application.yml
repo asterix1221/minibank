@@ -1,0 +1,84 @@
+server:
+  port: 8080
+  tomcat:
+    # Bugfix: Tomcat's MBeanRegistry is off by default since Spring Boot 3, which silently
+    # blanks out several imported Grafana panels that depend on it - "Thread Config Max",
+    # "Threads" (tomcat_threads_*) and "Sent & Received Bytes" (tomcat_global_*_bytes_total)
+    # all read from Tomcat's JMX MBeans, so without this they're just N/A / No data forever,
+    # not a scrape or dashboard problem.
+    mbeanregistry:
+      enabled: true
+
+spring:
+  application:
+    name: mini-bank
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:minibank}
+    username: ${DB_USER:minibank}
+    password: ${DB_PASSWORD:minibank}
+    driver-class-name: org.postgresql.Driver
+    # Stage 3 bugfix v3: default HikariCP pool is 10 connections. Under the Confirmation
+    # load test's sustained request rate that's a plausible first bottleneck (each transfer
+    # step briefly holds a connection) - if requests start queuing for a connection faster
+    # than they free up, callers eventually see timeouts/refused connections rather than
+    # slow-but-successful responses. Bump it and give a real timeout instead of the
+    # 30s default hanging the whole chain.
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:30}
+      connection-timeout: 5000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+minibank:
+  security:
+    session-header: X-Session-Token
+    session-ttl-minutes: 30
+  verification:
+    registration-code-ttl-minutes: 10
+    login-code-ttl-minutes: 5
+  transaction:
+    confirm-ttl-minutes: 10
+    execute-ttl-minutes: 15
+  transfer:
+    external-commission-percent: 1.0
+  external-processing:
+    fixed-delay-ms: 5000
+    min-processing-age-seconds: 10
+    failure-rate-percent: 5
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [clientId=%X{clientId:-} sessionId=%X{sessionId:-} transactionId=%X{transactionId:-}] %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.minibank: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: mini-bank
+    distribution:
+      percentiles-histogram:
+        # Bugfix: without this, http_server_requests_seconds_bucket is never emitted, so
+        # any Grafana panel doing histogram_quantile(...) for response-time percentiles
+        # (e.g. "Response Time" on the SpringBoot APM dashboard) stays permanently empty -
+        # the scrape/datasource were never the problem, this metric just didn't exist.
+        http.server.requests: true

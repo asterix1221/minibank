@@ -1,0 +1,506 @@
+{
+  "info": {
+    "name": "mini-bank",
+    "description": "Manual/Runner debugging collection for the mini-bank API. Run the whole collection top-to-bottom with the Collection Runner against the 'mini-bank (local)' environment - each folder feeds variables to the next, in order. See README 'Stage 3 - Part 1: Postman' for details.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Registration",
+      "item": [
+        {
+          "name": "Register Client A",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Client A\",\n  \"phone\": \"{{clientAPhone}}\",\n  \"passportData\": \"4500 111222\"\n}" },
+            "url": { "raw": "{{baseUrl}}/clients/register", "host": ["{{baseUrl}}"], "path": ["clients", "register"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.environment.set('clientARegId', json.registrationId);",
+            "pm.environment.set('clientARegCode', json.debugCode);"
+          ] } }]
+        },
+        {
+          "name": "Confirm Client A",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"{{clientARegCode}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/clients/register/{{clientARegId}}/confirm", "host": ["{{baseUrl}}"], "path": ["clients", "register", "{{clientARegId}}", "confirm"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.environment.set('clientAAccountNumber', pm.response.json().accountNumber);"
+          ] } }]
+        },
+        {
+          "name": "Register Client B",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"Client B\",\n  \"phone\": \"{{clientBPhone}}\",\n  \"passportData\": \"4500 333444\"\n}" },
+            "url": { "raw": "{{baseUrl}}/clients/register", "host": ["{{baseUrl}}"], "path": ["clients", "register"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.environment.set('clientBRegId', json.registrationId);",
+            "pm.environment.set('clientBRegCode', json.debugCode);"
+          ] } }]
+        },
+        {
+          "name": "Confirm Client B",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"{{clientBRegCode}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/clients/register/{{clientBRegId}}/confirm", "host": ["{{baseUrl}}"], "path": ["clients", "register", "{{clientBRegId}}", "confirm"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.environment.set('clientBAccountNumber', pm.response.json().accountNumber);"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login Initiate (Client A)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"{{clientAPhone}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login/initiate", "host": ["{{baseUrl}}"], "path": ["auth", "login", "initiate"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.environment.set('sessionId', json.sessionId);",
+            "pm.environment.set('loginDebugCode', json.debugCode);"
+          ] } }]
+        },
+        {
+          "name": "Login Confirm (Client A)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"code\": \"{{loginDebugCode}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login/confirm", "host": ["{{baseUrl}}"], "path": ["auth", "login", "confirm"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.environment.set('sessionToken', pm.response.json().token);"
+          ] } }]
+        },
+        {
+          "name": "Get My Accounts (Client A)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/accounts/me", "host": ["{{baseUrl}}"], "path": ["accounts", "me"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "const accounts = pm.response.json();",
+            "pm.test('has at least one account', () => pm.expect(accounts.length).to.be.above(0));",
+            "pm.environment.set('accountId', accounts[0].id);"
+          ] } }]
+        },
+        {
+          "name": "Fund Client A (test only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 100000.00\n}" },
+            "url": { "raw": "{{baseUrl}}/accounts/{{accountId}}/deposit", "host": ["{{baseUrl}}"], "path": ["accounts", "{{accountId}}", "deposit"] },
+            "description": "The spec has no deposit/funding endpoint anywhere - a freshly registered account always starts at balance 0. Without this step, every transfer/payment request below would fail with 422 INSUFFICIENT_FUNDS (which is exactly what happened before this was added - see README troubleshooting notes). This endpoint just credits the caller's own account; it's a test convenience, not a real banking feature."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));"
+          ] } }]
+        },
+        {
+          "name": "Login Initiate (Client B)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"{{clientBPhone}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login/initiate", "host": ["{{baseUrl}}"], "path": ["auth", "login", "initiate"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.environment.set('sessionIdB', json.sessionId);",
+            "pm.environment.set('loginDebugCodeB', json.debugCode);"
+          ] } }]
+        },
+        {
+          "name": "Login Confirm (Client B)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"sessionId\": \"{{sessionIdB}}\",\n  \"code\": \"{{loginDebugCodeB}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login/confirm", "host": ["{{baseUrl}}"], "path": ["auth", "login", "confirm"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.environment.set('sessionTokenB', pm.response.json().token);"
+          ] } }]
+        },
+        {
+          "name": "Get My Accounts (Client B)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionTokenB}}" }],
+            "url": { "raw": "{{baseUrl}}/accounts/me", "host": ["{{baseUrl}}"], "path": ["accounts", "me"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.environment.set('accountIdB', pm.response.json()[0].id);"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Internal Transfer",
+      "item": [
+        {
+          "name": "Internal Transfer - Initiate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"fromAccountId\": \"{{accountId}}\",\n  \"toAccountNumber\": \"{{clientBAccountNumber}}\",\n  \"amount\": 100.00\n}" },
+            "url": { "raw": "{{baseUrl}}/transfers/internal/initiate", "host": ["{{baseUrl}}"], "path": ["transfers", "internal", "initiate"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.environment.set('transactionId', json.transactionId);",
+            "pm.environment.set('transferDebugCode', json.debugCode);"
+          ] } }]
+        },
+        {
+          "name": "Internal Transfer - Confirm",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"{{transferDebugCode}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/transfers/internal/{{transactionId}}/confirm", "host": ["{{baseUrl}}"], "path": ["transfers", "internal", "{{transactionId}}", "confirm"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('status is CONFIRMED', () => pm.expect(pm.response.json().status).to.eql('CONFIRMED'));"
+          ] } }]
+        },
+        {
+          "name": "Internal Transfer - Execute",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/transfers/internal/{{transactionId}}/execute", "host": ["{{baseUrl}}"], "path": ["transfers", "internal", "{{transactionId}}", "execute"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('status is COMPLETED', () => pm.expect(pm.response.json().status).to.eql('COMPLETED'));"
+          ] } }]
+        },
+        {
+          "name": "Internal Transfer - Receipt",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/transfers/{{transactionId}}/receipt", "host": ["{{baseUrl}}"], "path": ["transfers", "{{transactionId}}", "receipt"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "External Transfer",
+      "item": [
+        {
+          "name": "External Transfer - Initiate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"fromAccountId\": \"{{accountId}}\",\n  \"externalRecipientDetails\": \"acc:99900011122\",\n  \"amount\": 50.00\n}" },
+            "url": { "raw": "{{baseUrl}}/transfers/external/initiate", "host": ["{{baseUrl}}"], "path": ["transfers", "external", "initiate"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.environment.set('externalTransactionId', json.transactionId);",
+            "pm.environment.set('externalDebugCode', json.debugCode);"
+          ] } }]
+        },
+        {
+          "name": "External Transfer - Confirm",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"{{externalDebugCode}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/transfers/external/{{externalTransactionId}}/confirm", "host": ["{{baseUrl}}"], "path": ["transfers", "external", "{{externalTransactionId}}", "confirm"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));"
+          ] } }]
+        },
+        {
+          "name": "External Transfer - Execute",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/transfers/external/{{externalTransactionId}}/execute", "host": ["{{baseUrl}}"], "path": ["transfers", "external", "{{externalTransactionId}}", "execute"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('status is PROCESSING', () => pm.expect(pm.response.json().status).to.eql('PROCESSING'));"
+          ] } }]
+        },
+        {
+          "name": "External Transfer - Check status after settlement",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/transfers/{{externalTransactionId}}/receipt", "host": ["{{baseUrl}}"], "path": ["transfers", "{{externalTransactionId}}", "receipt"] },
+            "description": "Run this again a few seconds after Execute - the background scheduler (Stage 1) settles PROCESSING transactions roughly every 5s by default, flipping status to COMPLETED or FAILED. If run immediately, status may still show PROCESSING - that's expected, just re-send."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Payment by Template",
+      "item": [
+        {
+          "name": "Create Template",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Electric bill\",\n  \"recipientDetails\": \"acc:77700099988\",\n  \"defaultAmount\": 15.00,\n  \"category\": \"UTILITIES\"\n}" },
+            "url": { "raw": "{{baseUrl}}/templates", "host": ["{{baseUrl}}"], "path": ["templates"] },
+            "description": "The spec only requires GET /templates and GET /templates/{id}; POST /templates was added in Stage 1 (see main README) since otherwise there would be no way to have a template to pay against."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.environment.set('templateId', pm.response.json().id);"
+          ] } }]
+        },
+        {
+          "name": "List Templates",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/templates", "host": ["{{baseUrl}}"], "path": ["templates"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('includes the created template', () => pm.expect(pm.response.json().some(t => t.id === pm.environment.get('templateId'))).to.be.true);"
+          ] } }]
+        },
+        {
+          "name": "Get Template",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/templates/{{templateId}}", "host": ["{{baseUrl}}"], "path": ["templates", "{{templateId}}"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));"
+          ] } }]
+        },
+        {
+          "name": "Payment - Initiate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"fromAccountId\": \"{{accountId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/templates/{{templateId}}/payments/initiate", "host": ["{{baseUrl}}"], "path": ["templates", "{{templateId}}", "payments", "initiate"] },
+            "description": "amount omitted on purpose - falls back to the template's defaultAmount."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.environment.set('paymentTransactionId', json.transactionId);",
+            "pm.environment.set('paymentDebugCode', json.debugCode);"
+          ] } }]
+        },
+        {
+          "name": "Payment - Confirm",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"{{paymentDebugCode}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/templates/{{templateId}}/payments/{{paymentTransactionId}}/confirm", "host": ["{{baseUrl}}"], "path": ["templates", "{{templateId}}", "payments", "{{paymentTransactionId}}", "confirm"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));"
+          ] } }]
+        },
+        {
+          "name": "Payment - Execute",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/templates/{{templateId}}/payments/{{paymentTransactionId}}/execute", "host": ["{{baseUrl}}"], "path": ["templates", "{{templateId}}", "payments", "{{paymentTransactionId}}", "execute"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('status is PROCESSING', () => pm.expect(pm.response.json().status).to.eql('PROCESSING'));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Transaction Events",
+      "item": [
+        {
+          "name": "Get Events (Internal Transfer)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/transactions/{{transactionId}}/events", "host": ["{{baseUrl}}"], "path": ["transactions", "{{transactionId}}", "events"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('has events', () => pm.expect(pm.response.json().length).to.be.above(0));"
+          ] } }]
+        },
+        {
+          "name": "Get Events (External Transfer)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/transactions/{{externalTransactionId}}/events", "host": ["{{baseUrl}}"], "path": ["transactions", "{{externalTransactionId}}", "events"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));"
+          ] } }]
+        },
+        {
+          "name": "Get Events (Payment)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/transactions/{{paymentTransactionId}}/events", "host": ["{{baseUrl}}"], "path": ["transactions", "{{paymentTransactionId}}", "events"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "Negative cases",
+      "item": [
+        {
+          "name": "No X-Session-Token -> 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/accounts/me", "host": ["{{baseUrl}}"], "path": ["accounts", "me"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 401', () => pm.response.to.have.status(401));"
+          ] } }]
+        },
+        {
+          "name": "Foreign accountId -> 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"fromAccountId\": \"{{accountIdB}}\",\n  \"toAccountNumber\": \"{{clientAAccountNumber}}\",\n  \"amount\": 10.00\n}" },
+            "url": { "raw": "{{baseUrl}}/transfers/internal/initiate", "host": ["{{baseUrl}}"], "path": ["transfers", "internal", "initiate"] },
+            "description": "Authenticated as Client A (sessionToken) but fromAccountId belongs to Client B - must be rejected."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 403', () => pm.response.to.have.status(403));"
+          ] } }]
+        },
+        {
+          "name": "Wrong confirm code - Initiate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"fromAccountId\": \"{{accountId}}\",\n  \"toAccountNumber\": \"{{clientBAccountNumber}}\",\n  \"amount\": 5.00\n}" },
+            "url": { "raw": "{{baseUrl}}/transfers/internal/initiate", "host": ["{{baseUrl}}"], "path": ["transfers", "internal", "initiate"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "pm.environment.set('negativeTransactionId', pm.response.json().transactionId);"
+          ] } }]
+        },
+        {
+          "name": "Wrong confirm code - Confirm with bad code -> 422 + FAILED",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Session-Token", "value": "{{sessionToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"000000\"\n}" },
+            "url": { "raw": "{{baseUrl}}/transfers/internal/{{negativeTransactionId}}/confirm", "host": ["{{baseUrl}}"], "path": ["transfers", "internal", "{{negativeTransactionId}}", "confirm"] },
+            "description": "000000 is not the real debugCode for this transaction on purpose - this must be rejected with 422 and the transaction must persist as FAILED (see next request)."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 422', () => pm.response.to.have.status(422));",
+            "pm.test('error code is INVALID_CONFIRMATION_CODE', () => pm.expect(pm.response.json().error).to.eql('INVALID_CONFIRMATION_CODE'));"
+          ] } }]
+        },
+        {
+          "name": "Wrong confirm code - Verify transaction is FAILED",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Session-Token", "value": "{{sessionToken}}" }],
+            "url": { "raw": "{{baseUrl}}/transactions/{{negativeTransactionId}}/events", "host": ["{{baseUrl}}"], "path": ["transactions", "{{negativeTransactionId}}", "events"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status is 200', () => pm.response.to.have.status(200));",
+            "const events = pm.response.json();",
+            "const last = events[events.length - 1];",
+            "pm.test('last event status is FAILED', () => pm.expect(last.status).to.eql('FAILED'));"
+          ] } }]
+        }
+      ]
+    }
+  ]
+}

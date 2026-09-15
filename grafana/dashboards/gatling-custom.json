@@ -1,0 +1,115 @@
+{
+  "title": "Gatling Load Test (custom)",
+  "uid": "gatling-load-test-custom",
+  "schemaVersion": 39,
+  "version": 2,
+  "editable": true,
+  "timezone": "browser",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "5s",
+  "panels": [
+    {
+      "id": 10,
+      "title": "Last run",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "gatling_last_run_info", "legendFormat": "{{run}}", "refId": "A", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "mappings": [], "noValue": "no run parsed yet" } },
+      "options": { "textMode": "name" }
+    },
+    {
+      "id": 11,
+      "title": "Results age (since last run was parsed)",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "time() - gatling_last_run_parsed_timestamp_seconds", "legendFormat": "seconds ago", "refId": "A", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 1,
+      "title": "Requests by name - OK vs KO (last completed run)",
+      "type": "barchart",
+      "datasource": "Prometheus",
+      "description": "Snapshot from Gatling's own js/global_stats.json + js/stats.js, written once the run finishes. Gatling OSS removed the live graphite writer in 3.12, so this does not update mid-run - see gatling.conf comment.",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "gatling_requests_total{request!=\"ALL\"}", "legendFormat": "{{request}} - {{status}}", "refId": "A", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "stacking": { "mode": "normal" } } },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*ko.*" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*ok.*" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] }
+        ]
+      },
+      "options": { "orientation": "horizontal" }
+    },
+    {
+      "id": 2,
+      "title": "Error rate by request (last completed run)",
+      "type": "bargauge",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 4 },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "gatling_error_ratio", "legendFormat": "{{request}}", "refId": "A", "instant": true }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Response time percentiles by request, ms (last completed run)",
+      "type": "barchart",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 13 },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "gatling_response_time_ms{stat=~\"p50|p95|p99\", request!=\"ALL\"}", "legendFormat": "{{request}} - {{stat}}", "refId": "A", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "options": { "orientation": "horizontal" }
+    },
+    {
+      "id": 4,
+      "title": "Mean throughput by request, req/s (last completed run)",
+      "type": "bargauge",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 13 },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "gatling_mean_requests_per_second{request!=\"ALL\"}", "legendFormat": "{{request}}", "refId": "A", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+    {
+      "id": 5,
+      "title": "Global summary (all requests, last completed run)",
+      "type": "table",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 22 },
+      "targets": [
+        { "datasource": "Prometheus", "expr": "gatling_response_time_ms{request=\"ALL\"}", "legendFormat": "{{stat}}", "refId": "A", "instant": true, "format": "table" }
+      ]
+    }
+  ]
+}

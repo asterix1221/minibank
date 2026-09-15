@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.4</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.minibank</groupId>
+    <artifactId>mini-bank</artifactId>
+    <version>0.1.0</version>
+    <name>mini-bank</name>
+    <description>Mini bank backend - Stage 1 (core domain)</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <!-- Stage 3: verify these against Maven Central before running load tests in a real
+             environment - this sandbox has no Maven Central access to confirm the exact latest
+             patch (see README "Architecture decisions - Stage 3"). -->
+        <gatling.version>3.14.3</gatling.version>
+        <gatling-maven-plugin.version>4.21.7</gatling-maven-plugin.version>
+        <!-- Stage 3 bugfix: Spring Boot 3.3.4 pins Netty 4.1.113.Final, but Gatling 3.14.3
+             requires Netty 4.2.1.Final (introduces io.netty.channel.IoHandle/IoOps).
+             Without this override, `mvn gatling:test` fails with
+             NoClassDefFoundError: io/netty/channel/IoHandle - confirmed against both
+             projects' actual dependency declarations. The app itself doesn't use Netty
+             directly (Tomcat, not WebFlux/reactor-netty), so bumping this is safe. -->
+        <netty.version>4.2.1.Final</netty.version>
+        <!-- Stage 3 bugfix v2: 1.18.34 doesn't understand javac internals on newer JDKs
+             (23/24/25) - fails with "ExceptionInInitializerError: TypeTag :: UNKNOWN" the
+             moment Lombok's patched javac.code.TypeTag enum doesn't line up with what the
+             actual javac running the build ships. 1.18.46 is current upstream and covers
+             JDK 21 through 25 (see https://projectlombok.org/setup/maven). -->
+        <lombok.version>1.18.46</lombok.version>
+        <!-- Stage 3 bugfix v3: mvn is running on JDK 25 (confirmed from the surefire crash
+             report). Spring Boot 3.3.4's managed Mockito (5.11.x) bundles a Byte Buddy that
+             only understands class-file versions up to JDK 23/24, so its inline mock maker
+             can't self-attach on JDK 25 ("does not supply a working agent attachment
+             mechanism"). Overriding both properties to versions with confirmed native JDK 25
+             support (see https://github.com/mockito/mockito/releases - 5.22.0 - and the
+             Apache Pulsar project's JDK25 upgrade, which paired it with Byte Buddy 1.17.7). -->
+        <mockito.version>5.22.0</mockito.version>
+        <byte-buddy.version>1.17.7</byte-buddy.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Stage 3: Gatling Java DSL load tests -->
+        <dependency>
+            <groupId>io.gatling.highcharts</groupId>
+            <artifactId>gatling-charts-highcharts</artifactId>
+            <version>${gatling.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Stage 3 bugfix: explicit annotation-processor wiring for Lombok. Without this,
+                 javac's implicit processor discovery can silently fail to run Lombok (seen as
+                 100 "cannot find symbol" errors for every @Getter/@Setter method), which breaks
+                 both `mvn clean verify` and `mvn gatling:test` (both trigger compile). -->
+            <!-- Stage 3 bugfix v4: resolves the mockito-core jar's on-disk path into a Maven
+                 property so it can be passed to surefire as -javaagent below. Needed because
+                 self-attach (Mockito's fallback when no agent is pre-registered) breaks on
+                 this machine - see the surefire-plugin config comment for why. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>resolve-mockito-agent-path</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Stage 3 bugfix v4: mvn is running on a JDK whose Attach API + this machine's
+                 non-ASCII (Cyrillic) user-profile path together break Mockito/Byte Buddy's
+                 dynamic self-attach - it fails computing its own agent jar's path ("Error
+                 opening zip file or JAR manifest missing", then AgentLoadException). Loading
+                 Mockito as a real -javaagent at JVM startup (using the jar path resolved by
+                 maven-dependency-plugin above) sidesteps self-attach entirely - this is
+                 Mockito's own documented fix for "does not supply a working agent attachment
+                 mechanism", see https://javadoc.io/doc/org.mockito/mockito-core/latest/org.mockito/org/mockito/Mockito.html#0.3 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-javaagent:${org.mockito:mockito-core:jar} -Djdk.attach.allowAttachSelf=true -Xmx1536m</argLine>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- Stage 3: intentionally NOT bound to any lifecycle phase (no <executions>) -
+                 a normal `mvn clean verify` must not try to run load tests against a live app.
+                 Invoke explicitly: mvn gatling:test -Dgatling.simulationClass=... -->
+            <plugin>
+                <groupId>io.gatling</groupId>
+                <artifactId>gatling-maven-plugin</artifactId>
+                <version>${gatling-maven-plugin.version}</version>
+                <configuration>
+                    <simulationsFolder>${project.basedir}/src/test/java</simulationsFolder>
+                    <resourcesFolder>${project.basedir}/src/test/resources</resourcesFolder>
+                    <runMultipleSimulations>false</runMultipleSimulations>
+                    <!-- Stage 3 bugfix v3: default Gatling fork heap (~1g via its own default
+                         JVM_OPTS) is too small once the target rate outpaces what the app can
+                         actually complete - Gatling holds every in-flight/queued virtual-user
+                         Session in memory (open workload model), so a rate the app can't keep
+                         up with makes that backlog grow without bound until the JVM OOMs. This
+                         raises the ceiling; it does NOT fix a target rate that's genuinely
+                         higher than the app can sustain - see the note in ConfirmationSimulation
+                         about picking targetUsersPerSec from the real MaxSearchSimulation result. -->
+                    <jvmArgs>
+                        <jvmArg>-Xmx4g</jvmArg>
+                        <jvmArg>-Xms1g</jvmArg>
+                    </jvmArgs>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

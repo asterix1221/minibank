@@ -1,0 +1,108 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: minibank
+      POSTGRES_USER: minibank
+      POSTGRES_PASSWORD: minibank
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minibank -d minibank"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - minibank-net
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: minibank
+      DB_USER: minibank
+      DB_PASSWORD: minibank
+    ports:
+      - "8080:8080"
+    # Bugfix (Stage 3, take 2): 1g was too tight - see the long comment in the Dockerfile.
+    # 2g is a safer starting point that leaves ~1GB heap (MaxRAMPercentage=50.0) and ~1GB for
+    # Metaspace/threads/native buffers under concurrent load. Still not a measured number -
+    # watch `docker stats mini-bank-app-1` during a short test before trusting a long run, and
+    # raise further if it's sitting near the ceiling.
+    mem_limit: 2g
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - minibank-net
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATA_SOURCE_NAME: "postgresql://minibank:minibank@postgres:5432/minibank?sslmode=disable"
+    ports:
+      - "9187:9187"
+    networks:
+      - minibank-net
+
+  prometheus:
+    image: prom/prometheus
+    depends_on:
+      - app
+      - postgres-exporter
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      # Bugfix (Stage 3): the 'gatling' scrape target in prometheus.yml points at
+      # host.docker.internal:9302, because the Gatling exporter runs on the host, not as a
+      # compose service. host.docker.internal only resolves automatically on Docker Desktop;
+      # on bare Docker Engine (Linux) - which is what the ТЗ actually requires, "не docker
+      # desktop" - it does not resolve at all without this entry, so without it the gatling
+      # target is unreachable *always*, not just "DOWN when no test is running" as the old
+      # comment claimed. "host-gateway" is the portable special value (Docker Engine 20.10+)
+      # that works the same way on both bare Linux Engine and Docker Desktop, so this is safe
+      # to have on both - it does not conflict with Desktop's built-in mapping.
+      - "host.docker.internal:host-gateway"
+    networks:
+      - minibank-net
+
+  grafana:
+    image: grafana/grafana
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - minibank-net
+
+networks:
+  minibank-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
